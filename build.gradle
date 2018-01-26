@@ -1,0 +1,165 @@
+group 'com.gaojc'
+version '1.0.0-SNAPSHOT'
+
+apply plugin: 'idea'
+apply plugin: 'java'
+apply plugin: "maven"
+apply plugin: 'groovy'
+
+sourceCompatibility = 1.7
+compileJava.options.encoding = 'UTF-8'
+compileJava.options.compilerArgs = ["-Xlint:unchecked", "-Xlint:deprecation"]
+
+compileTestJava.options.encoding = 'UTF-8'
+compileTestJava.options.compilerArgs = ["-Xlint:unchecked", "-Xlint:deprecation"]
+
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    /*本地中央仓库*/
+    maven {
+        url "http://192.168.1.102:8080/nexus/content/repositories/central/"
+    }
+    maven {
+        url "http://192.168.1.102:8080/nexus/content/repositories/thirdparty/"
+    }
+    maven {
+        url "http://192.168.1.102:8080/nexus/content/repositories/releases/"
+    }
+    maven {
+        url "http://192.168.1.102:8080/nexus/content/repositories/snapshots/"
+    }
+}
+
+
+dependencies {
+    compile 'org.apache.shiro:shiro-core:1.2.4'
+    compile 'org.apache.shiro:shiro-cas:1.2.4'
+    compile 'org.apache.shiro:shiro-web:1.2.4'
+    compile 'org.apache.shiro:shiro-all:1.2.4'
+    compile("redis.clients:jedis:2.1.0")
+    compile 'org.springframework.data:spring-data-redis:1.0.2.RELEASE'
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
+
+    testCompile 'org.springframework:spring-test:3.1.2.RELEASE'
+    testCompile 'com.github.springtestdbunit:spring-test-dbunit:1.0.1'
+    testCompile 'org.unitils:unitils-dbunit:3.3'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+project.ext {
+    versionFile = file('version.properties')
+}
+
+class ProjectVersion {
+    Integer major
+    Integer minor
+    Integer bugfix
+    Boolean release
+
+    ProjectVersion(Integer major, Integer minor, Integer bugfix) {
+        this.major = major
+        this.minor = minor
+        this.bugfix = bugfix
+        this.release = Boolean.FALSE
+    }
+
+    ProjectVersion(Integer major, Integer minor, Integer bugfix, Boolean release) {
+        this.major = major
+        this.minor = minor
+        this.bugfix = bugfix
+        this.release = release
+    }
+
+    @Override
+    String toString() {
+        "$major.$minor.$bugfix${release ? '' : '-SNAPSHOT'}"
+    }
+}
+
+task printVersion {
+    doLast {
+        logger.quiet("version:$version")
+    }
+}
+task loadVersion {
+    project.version = readVersion()
+}
+
+def isRelease() {
+    ProjectVersion projectVersion = readVersion()
+    projectVersion.release
+}
+
+ProjectVersion readVersion() {
+    logger.quiet('Reading the version file.')
+    if (!versionFile.exists()) {
+        throw new GradleException("Required version file does not exists:$versionFile.canonicalPath")
+    }
+    Properties versionProps = new Properties()
+    versionFile.withInputStream { stream ->
+        versionProps.load(stream)
+    }
+    new ProjectVersion(versionProps.major.toInteger(), versionProps.minor.toInteger(), versionProps.bugfix.toInteger(), versionProps.release.toBoolean())
+}
+
+task writeVersionFile << {
+    def versionFilePath = 'version.json'
+    File file = new File(versionFilePath)
+    if (!file.exists()) file.createNewFile()
+
+    def versionFile = new File(versionFilePath)
+    versionFile.text = '{"version":"' + version + '"}'
+}
+
+uploadArchives {
+    dependsOn build
+    configuration = configurations.archives
+    repositories.mavenDeployer {
+        repository(url: 'http://192.168.1.102:8080/nexus/content/repositories/releases/') {
+            authentication(userName: "admin", password: "admin123")
+        }
+
+        snapshotRepository(url: 'http://192.168.1.102:8080/nexus/content/repositories/snapshots/') {
+            authentication(userName: "admin", password: "admin123")
+        }
+
+        pom.project {
+            name 'gaojc'
+            packaging 'jar'
+            description 'none'
+//            url 'http://192.168.1.102:8080/nexus/content/repositories/releases/'
+            url 'http://192.168.1.102:8080/nexus/content/repositories/snapshots/'
+            groupId "com.gaojc"
+            artifactId "sharesession"
+            version version
+        }
+    }
+}
+
+processResources {
+    dependsOn writeVersionFile
+}
+
+jar {
+    baseName = 'sharesession'
+    version version
+    manifest {
+        attributes 'Implementation-Title': 'session',
+                'Implementation-Version': version,
+                'Created-By': 'gaojc'
+    }
+}
+
+task makeReleaseVersion(group: 'versioning', description: 'Makes project a release version.') << {
+    ant.propertyfile(file: versionFile) {
+        entry(key: 'release', type: 'string', operation: '=', value: 'true')
+    }
+}
