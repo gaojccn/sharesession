@@ -87,8 +87,8 @@
         <!-- jsessionId的path为 / 用于多个系统共享jsessionId -->
         <property name="path" value="/"/>
         <property name="httpOnly" value="true"/>
-        <!--maxAge=-1表示浏览器关闭时失效此Cookie-->
-        <property name="maxAge" value="-1"/>
+        <!--maxAge设置cookie有效时间,单位是秒-->
+        <property name="maxAge" value="{$cookie.maxAge}"/>
     </bean>
 
     <!-- 相当于调用SecurityUtils.setSecurityManager(securityManager) -->
