@@ -1,3 +1,8 @@
+[1.1.0]
+  date：2018.03.15
+  desc: maxAge设置cookie有效时间
+  author/modifier: gaojccn
 [1.0.0]
-  init version 1.0.0-SNAPSHOT
-  by gaojccn
+  date：2018.02.01
+  desc: init version 1.0.0-SNAPSHOT
+  author/modifier: gaojccn
